@@ -208,7 +208,8 @@
                             <Anchor point="LEFT" relativeTo="$(parent)" relativePoint="LEFT" offsetX="0" offsetY="0"/>
                             <TextureCoords bottom="1" top="0" right="1" left="0"/>
                         </Texture>
-                        <Label name="$(parent)Quantity" horizontalAlignment="RIGHT" verticalAlignment="CENTER" inheritAlpha="true" text="1" color="FFFFFF" height="24" width="30" font="$(ANTIQUE_FONT)|15||soft-shadow-thin">
+                        <Label name="$(parent)Quantity" horizontalAlignment="RIGHT" verticalAlignment="CENTER" inheritAlpha="true" text="1" color="FFFFFF" font="$(ANTIQUE_FONT)|15||soft-shadow-thin">
+                            <Dimensions x="30" y="24"/>
                             <Anchor point="BOTTOMRIGHT" relativeTo="$(parent)Icon" relativePoint="BOTTOMRIGHT" offsetX="0" offsetY="2"/>
                         </Label>
                         <Label name="$(parent)Text" inheritAlpha="true" verticalAlignment="CENTER" horizontalAlignment="LEFT" wrapMode="ELLIPSIS" lineSpacing="0" font="$(ANTIQUE_FONT)|15">
