@@ -352,7 +352,12 @@ function ArkadiusTradeToolsSales.TradingHouse:SetCalcDays(days)
   end
 end
 
----@return Number, String
+---@param cache table
+---@param data any
+---@param itemLink string
+---@param days integer
+---@return number
+---@return string
 local function GetMarginData(cache, data, itemLink, days)
   if data.ATT_INIT ~= days then
     -- We need to cache by days and item link in case the day slider is changed
@@ -409,7 +414,8 @@ function ArkadiusTradeToolsSales.TradingHouse:InitializeListingMarginDisplay()
   end)
 end
 
----@param margin Number
+---@param margin number
+---@return ZO_ColorDef color
 function ArkadiusTradeToolsSales.TradingHouse.GetMarginColor(margin)
   local color = ZO_ColorDef:New(GetItemQualityColor(5))
   if (margin == -math.huge) then
