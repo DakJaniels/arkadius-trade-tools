@@ -44,8 +44,8 @@ function TooltipExtensionList:SortScrollList()
     local scrollData = ZO_ScrollList_GetDataList(self.list)
 
     local Sort = function(entry1, entry2)
-        itemQuality1 = GetItemLinkFunctionalQuality(entry1.data.itemLink)
-        itemQuality2 = GetItemLinkFunctionalQuality(entry2.data.itemLink)
+        local itemQuality1 = GetItemLinkFunctionalQuality(entry1.data.itemLink)
+        local itemQuality2 = GetItemLinkFunctionalQuality(entry2.data.itemLink)
 
         if (itemQuality1 < itemQuality2) then
             return true
