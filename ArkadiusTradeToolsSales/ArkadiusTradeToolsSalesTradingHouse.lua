@@ -7,6 +7,13 @@ local attRound = math.attRound
 local SECONDS_IN_DAY = 60 * 60 * 24
 local TRADING_HOUSE_OnPurchaseSuccess
 
+local ITEM_RESULT_CURRENCY_OPTIONS =
+{
+  showTooltips = false,
+  font = '$(BOLD_FONT)|18|soft-shadow-thin',
+  iconSide = RIGHT,
+}
+
 --- Prevent the search result list to reset to top on purchase ---
 local function OnPurchaseSuccess(self)
   local list = self.searchResultsList
