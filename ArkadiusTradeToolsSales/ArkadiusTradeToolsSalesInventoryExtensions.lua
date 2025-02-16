@@ -15,7 +15,8 @@ ArkadiusTradeToolsSales.InventoryExtensions = {
         ["ZO_SmithingTopLevelDeconstructionPanelInventory"] = true,
         ["ZO_SmithingTopLevelImprovementPanelInventory"] = true,
         ["ZO_SmithingTopLevelRefinementPanelInventory"] = true,
-        ["ZO_EnchantingTopLevelInventory"] = true
+        ["ZO_EnchantingTopLevelInventory"] = true,
+        ["ZO_UniversalDeconstructionTopLevel_KeyboardPanelInventory"] = true
     },
     inventoryLists = {
         [ZO_PlayerInventoryList] = true,
@@ -26,7 +27,8 @@ ArkadiusTradeToolsSales.InventoryExtensions = {
         [ZO_SmithingTopLevelDeconstructionPanelInventoryBackpack] = true,
         [ZO_SmithingTopLevelImprovementPanelInventoryBackpack] = true,
         [ZO_SmithingTopLevelRefinementPanelInventoryBackpack] = true,
-        [ZO_EnchantingTopLevelInventoryBackpack] = true
+        [ZO_EnchantingTopLevelInventoryBackpack] = true,
+        [ZO_UniversalDeconstructionTopLevel_KeyboardPanelInventoryBackpack] = true
     }
 }
 
