@@ -558,22 +558,11 @@ function ArkadiusTradeTools:ShowNotification(notification)
   end
 
   CHAT_ROUTER:AddSystemMessage(notification)
-  CENTER_SCREEN_ANNOUNCE:AddMessage(
-    nil,
-    CSA_CATEGORY_SMALL_TEXT,
-    SOUNDS.ITEM_MONEY_CHANGED,
-    notification,
-    nil,
-    nil,
-    nil,
-    nil,
-    nil,
-    5000,
-    nil,
-    QUEUE_IMMEDIATELY,
-    SHOW_IMMEDIATELY,
-    REINSERT_STOMPED_MESSAGE
-  )
+  local messageParams = CENTER_SCREEN_ANNOUNCE:CreateMessageParams(CSA_CATEGORY_SMALL_TEXT, SOUNDS.ITEM_MONEY_CHANGED)
+  messageParams:SetText(notification)
+  messageParams:SetSound(SOUNDS.ITEM_MONEY_CHANGED)
+  messageParams:SetLifespanMS(5000)
+  CENTER_SCREEN_ANNOUNCE:AddMessageWithParams(messageParams)
 end
 
 function ArkadiusTradeTools:CreateDefaultSettings(settings, defaultSettings)
