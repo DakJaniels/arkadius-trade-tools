@@ -937,7 +937,7 @@ function ArkadiusTradeToolsSales:StatsToChat(itemLink, language)
 
     if (numSales > 0) then
         if (itemType == ITEMTYPE_MASTER_WRIT) then
-            local vouchers = self:GetVoucherCount(itemLink)
+            vouchers = self:GetVoucherCount(itemLink)
             chatString = string.format(L["ATT_FMTSTR_STATS_MASTER_WRIT"], itemLink, ArkadiusTradeTools:LocalizeDezimalNumber(averagePrice * vouchers), ArkadiusTradeTools:LocalizeDezimalNumber(numSales), ArkadiusTradeTools:LocalizeDezimalNumber(quantity), ArkadiusTradeTools:LocalizeDezimalNumber(averagePrice), days)
         else
             if (quantity > numSales) then
@@ -950,7 +950,7 @@ function ArkadiusTradeToolsSales:StatsToChat(itemLink, language)
         chatString = string.format(L["ATT_FMTSTR_STATS_NO_SALES"], itemLink, days)
     end
 
-    CHAT_SYSTEM.textEntry:InsertLink(chatString)
+    StartChatInput(chatString)
 end
 
 function ArkadiusTradeToolsSales:SearchForItem(itemLink)
