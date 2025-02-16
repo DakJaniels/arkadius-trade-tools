@@ -1118,7 +1118,7 @@ function ArkadiusTradeToolsSales:NormalizeItemLink(itemLink)
     return subString1 .. "0" .. subString2
 end
 
-function ArkadiusTradeToolsSales:OnGuildHistoryEventStore(guildId)
+--[[ function ArkadiusTradeToolsSales:OnGuildHistoryEventStore(guildId)
     self.nextGuildHistoryScanIndex = self.nextGuildHistoryScanIndex or {}
     self.nextGuildHistoryScanIndex[guildId] = self.nextGuildHistoryScanIndex[guildId] or 1
 
@@ -1143,7 +1143,7 @@ function ArkadiusTradeToolsSales:OnGuildHistoryEventStore(guildId)
     end
 
     self.nextGuildHistoryScanIndex[guildId] = GetNumGuildEvents(guildId, GUILD_HISTORY_STORE) + 1
-end
+end ]]
 
 function ArkadiusTradeToolsSales.OnResize(frame, width, height)
     frame.headers:Update()
