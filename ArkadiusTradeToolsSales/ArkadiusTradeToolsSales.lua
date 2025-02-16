@@ -250,7 +250,7 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
     local eventsToScan
     local isRescanComplete = false
     return function(eventType, eventId, eventTime, seller, buyer, quantity, itemLink, price, tax)
-        logger:Verbose("Event received for", guildName)
+        --logger:Verbose("Event received for", guildName)
         local statusIndicator = ArkadiusTradeTools.guildStatus:GetNamedChild('Indicator' .. guildIndex)
         -- TODO: This should probably be handled via an event
         ArkadiusTradeTools.guildStatus:SetBusy(guildIndex)
@@ -263,13 +263,13 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
         if not eventsToScan then
             eventsToScan = eventsRemaining
         end
-        logger:Verbose(eventsRemaining, "events remaining for", guildName)
+        --logger:Verbose(eventsRemaining, "events remaining for", guildName)
         if isRescan and isNewEvent then
             rescanCount = rescanCount + 1
         end
         if eventsRemaining == 0 then
             if updateFunction then
-                logger:Debug('Unregistering for update')
+                --logger:Debug('Unregistering for update')
                 EVENT_MANAGER:UnregisterForUpdate(updateFunction)
                 updateFunction = nil
             end
@@ -277,11 +277,11 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
             if isRescan and not isRescanComplete then
                 local message = zo_strformat("Rescan complete for <<1>> (<<2>> transactions). Found <<3>> missing sales events.", guildName, eventsToScan, rescanCount)
                 CHAT_ROUTER:AddSystemMessage(message)
-                logger:Debug(message)
+                --logger:Debug(message)
                 isRescanComplete = true
             end
         elseif not updateFunction then
-            logger:Debug('Registering for update')
+            --logger:Debug('Registering for update')
             updateFunction = 'ArkadiusTradeToolsSalesGuildStatusUpdate' .. guildIndex
             EVENT_MANAGER:RegisterForUpdate(updateFunction, 100, function()
                 updateStatusTooltip(listener, statusIndicator)
@@ -296,10 +296,10 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
 end
 
 function ArkadiusTradeToolsSales:RescanHistory()
-    logger:Info('Rescanning LibHistoire events')
+    --logger:Info('Rescanning LibHistoire events')
     local function UpdateListener(guildIndex, guildId)
         local guildName = GetGuildName(guildId)
-        logger:Info("Rescanning guild", guildName)
+        --logger:Info("Rescanning guild", guildName)
         local listener = self.guildListeners[guildId]
         listener:Stop()
         listener = LibHistoire:CreateGuildHistoryListener(guildId, GUILD_HISTORY_STORE)
@@ -307,7 +307,7 @@ function ArkadiusTradeToolsSales:RescanHistory()
         local guildSettings = Settings.guilds[guildName]
         local latestEventId
         local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
-        logger:Info("Setting starting event time of", olderThanTimeStamp, "for", guildName)
+        --logger:Info("Setting starting event time of", olderThanTimeStamp, "for", guildName)
         listener:SetAfterEventTime(olderThanTimeStamp)
         listener:SetEventCallback(createListenerCallback(self, listener, guildIndex, guildSettings, latestEventId, true))
         listener:Start()
@@ -322,11 +322,11 @@ function ArkadiusTradeToolsSales:RescanHistory()
 end
 
 function ArkadiusTradeToolsSales:RegisterLibHistoire()
-    logger:Info('Registering LibHistoire')
+    --logger:Info('Registering LibHistoire')
     self.guildListeners = {}
     local function SetUpListener(guildIndex, guildId)
         local guildName = GetGuildName(guildId)
-        logger:Info("Setting up for guild", guildName)
+        --logger:Info("Setting up for guild", guildName)
         local listener = LibHistoire:CreateGuildHistoryListener(guildId, GUILD_HISTORY_STORE)
         self.guildListeners[guildId] = listener
         local guildSettings = Settings.guilds[guildName]
@@ -334,11 +334,11 @@ function ArkadiusTradeToolsSales:RegisterLibHistoire()
         if guildSettings.latestEventId then
             latestEventId = StringToId64(guildSettings.latestEventId)
             listener:SetAfterEventId(latestEventId)
-            logger:Info("Latest event id for", guildName, guildSettings.latestEventId)
+            --logger:Info("Latest event id for", guildName, guildSettings.latestEventId)
         else
             local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
             listener:SetAfterEventTime(olderThanTimeStamp)
-            logger:Info("No latest event id for", guildName)
+            --logger:Info("No latest event id for", guildName)
         end
         listener:SetEventCallback(createListenerCallback(self, listener, guildIndex, guildSettings, latestEventId))
         listener:Start()
@@ -354,7 +354,7 @@ end
 
 ---------------------------------------------------------------------------------------
 function ArkadiusTradeToolsSales:Initialize(serverName, displayName)
-  logger:Debug("Initialize")
+  --logger:Debug("Initialize")
     for i = 1, NUM_SALES_TABLES do
         if (SalesTables[i] == nil) then
             CHAT_ROUTER:AddSystemMessage("ArkadiusTradeToolsSales: Error! Number of data tables is not correct. Maybe you forgot to activate them in the addons menu?")
@@ -636,7 +636,7 @@ function ArkadiusTradeToolsSales:AddEvent(guildId, eventId, eventType, eventTime
     local eventIdNumber = tonumber(eventIdString)
     local hashNumber = eventIdNumber > 0 and eventIdNumber or tonumber(eventIdString:sub(-9))
     local dataIndex = floor((hashNumber % (NUM_SALES_TABLES * 2)) / 2) + 1
-    logger:Debug('ArkadiusTradeToolsSales:EventId', eventIdString, eventIdNumber, hashNumber, dataIndex)
+    --logger:Debug('ArkadiusTradeToolsSales:EventId', eventIdString, eventIdNumber, hashNumber, dataIndex)
     local dataTable = SalesTables[dataIndex][self.serverName]
     if (eventIdString ~= '0') then
         -- We don't want to use a number key stringified and duplicate the data
