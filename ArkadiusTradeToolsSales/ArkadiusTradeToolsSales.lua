@@ -431,7 +431,7 @@ function ArkadiusTradeToolsSales:Initialize(serverName, displayName)
 
     self.list:RefreshData()
     self:RegisterLibHistoire()
-    ArkadiusTradeTools:RegisterCallback(ArkadiusTradeTools.EVENTS.ON_RESCAN_GUILDS, function(...) self:RescanHistory(...) end)
+    ArkadiusTradeTools:RegisterCallback(ArkadiusTradeTools.EVENTS.ON_RESCAN_GUILDS, function() self:RescanHistory() end)
 end
 
 function ArkadiusTradeToolsSales:Finalize()
