@@ -550,7 +550,7 @@ function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
         itemType, _ = GetItemLinkItemType(itemLink)
         itemLevel = GetItemLinkRequiredLevel(itemLink)
         itemCP = GetItemLinkRequiredChampionPoints(itemLink)
-        itemQuality = GetItemLinkQuality(itemLink)
+        itemQuality = GetItemLinkFunctionalQuality(itemLink)
         
         local isArmorOrWeapon = (itemType == ITEMTYPE_ARMOR) or (itemType == ITEMTYPE_WEAPON)
         if (isArmorOrWeapon or (itemType == ITEMTYPE_ARMOR_TRAIT) or (itemType == ITEMTYPE_WEAPON_TRAIT) or (itemType == ITEMTYPE_JEWELRY_TRAIT)) then
@@ -703,7 +703,7 @@ function ArkadiusTradeToolsSales:GetItemSalesInformation(itemLink, fromTimeStamp
         itemTrait = itemLinkInfo.trait
     else
         itemType = GetItemLinkItemType(itemLink)
-        itemQuality = GetItemLinkQuality(itemLink)
+        itemQuality = GetItemLinkFunctionalQuality(itemLink)
         itemName = GetItemLinkName(itemLink)
         itemLevel = GetItemLinkRequiredLevel(itemLink)
         itemCP = GetItemLinkRequiredChampionPoints(itemLink)
@@ -801,7 +801,7 @@ function ArkadiusTradeToolsSales:GetAveragePricePerItem(itemLink, newerThanTimeS
 
     newerThanTimeStamp = newerThanTimeStamp or 0
     local itemSales = self:GetItemSalesInformation(itemLink, newerThanTimeStamp, false, olderThanTimeStamp)
-    local itemQuality = GetItemLinkQuality(itemLink)
+    local itemQuality = GetItemLinkFunctionalQuality(itemLink)
     local itemType = GetItemLinkItemType(itemLink)
     local averagePrice = 0
     local quantity = 0
@@ -944,7 +944,7 @@ function ArkadiusTradeToolsSales:SearchForItem(itemLink)
     ArkadiusTradeTools.frame:SetHidden(false)
     local itemLinkInfo = TemporaryVariables.itemLinkInfos[itemLink] or {
         name = GetItemLinkName(itemLink),
-        quality = GetItemLinkQuality(itemLink),
+        quality = GetItemLinkFunctionalQuality(itemLink),
     }
     self.frame.filterBar.Text:SetText(string.format('%s %s', itemLinkInfo.name, TemporaryVariables.qualityNamesLowered[itemLinkInfo.quality]))
     ArkadiusTradeTools.Templates.EditBox.OnEnter(self.frame.filterBar.Text)

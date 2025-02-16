@@ -44,8 +44,8 @@ function TooltipExtensionList:SortScrollList()
     local scrollData = ZO_ScrollList_GetDataList(self.list)
 
     local Sort = function(entry1, entry2)
-        itemQuality1 = GetItemLinkQuality(entry1.data.itemLink)
-        itemQuality2 = GetItemLinkQuality(entry2.data.itemLink)
+        itemQuality1 = GetItemLinkFunctionalQuality(entry1.data.itemLink)
+        itemQuality2 = GetItemLinkFunctionalQuality(entry2.data.itemLink)
 
         if (itemQuality1 < itemQuality2) then
             return true
@@ -345,7 +345,7 @@ function ArkadiusTradeToolsSales.TooltipExtension:UpdateStatistics(itemLink)
     if itemLink == nil then return end
 
     local itemSales = self:GetItemSalesInformation(itemLink, GetTimeStamp() - self.days * self.SECONDS_IN_DAY)
-    local itemQuality = GetItemLinkQuality(itemLink)
+    local itemQuality = GetItemLinkFunctionalQuality(itemLink)
     local itemType = GetItemLinkItemType(itemLink)
     local bindType = GetItemLinkBindType(itemLink)
     local priceString = L["ATT_STR_NO_PRICE"]
