@@ -1,12 +1,12 @@
 ## Title: Arkadius' Trade Tools - Sales
 ## Author: Aldanga (@Aldanga NA), Arkadius (@Arkadius1 EU)
-## APIVersion: 101041
+## APIVersion: 101044 101045
 ## Description: None
-## Version: 2.0.0
-## AddOnVersion: 20000
+## Version: 2.0.1
+## AddOnVersion: 20001
 ## SavedVariables: ArkadiusTradeToolsSalesData
-## DependsOn: ArkadiusTradeTools LibDebugLogger>=180 LibHistoire>=824 LibAsync>=20100
-## OptionalDependsOn: AwesomeGuildStore LibGuildRoster
+## DependsOn: ArkadiusTradeTools LibDebugLogger>=263 LibHistoire>=1062 LibAsync>=30000
+## OptionalDependsOn: AwesomeGuildStore>=3219 LibGuildRoster>=103
 
 ArkadiusTradeToolsSales.lua
 ArkadiusTradeToolsSalesGuildRoster.lua
