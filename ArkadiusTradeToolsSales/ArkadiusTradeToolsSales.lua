@@ -4,6 +4,7 @@ ArkadiusTradeToolsSales.Localization = {}
 ArkadiusTradeToolsSales.SalesTables = {}
 
 local logger = LibDebugLogger("ArkadiusTradeToolsSales")
+local ASYNC = LibAsync
 
 local L = ArkadiusTradeToolsSales.Localization
 local Utilities = ArkadiusTradeTools.Utilities
@@ -464,6 +465,7 @@ function ArkadiusTradeToolsSales:GetSettingsMenu()
         table.insert(settingsMenu, {type = "slider", name = guildName, min = 1, max = 30, getFunc = function() return Settings.guilds[guildName].keepSalesForDays end, setFunc = function(value) Settings.guilds[guildName].keepSalesForDays = value end})
     end
 
+    table.insert(settingsMenu, {type = "checkbox", name = "Enable Debug Messages", tooltip = "Show debug messages in chat when loading sales data", getFunc = function () return Settings.debugMode end, setFunc = function (value) Settings.debugMode = value end, })
     table.insert(settingsMenu, {type = "custom"})
 
     return settingsMenu
@@ -515,13 +517,26 @@ function ArkadiusTradeToolsSales:SaveSettings()
 end
 
 function ArkadiusTradeToolsSales:LoadSales()
-    for t = 1, #SalesTables do
-        for eventId, sale in pairs(SalesTables[t][self.serverName].sales) do
-            self:UpdateTemporaryVariables(sale)
-            -- local entry = Utilities.EnsureUnitPrice(sale)
-            self.list:UpdateMasterList(sale)
+  local task = ASYNC:Create('LoadSales')
+  task:For(1, #SalesTables)
+      :Do(function (t)
+        local salesTable = SalesTables[t][self.serverName].sales
+        task:For(pairs(salesTable))
+            :Do(function (_, sale)
+              self:UpdateTemporaryVariables(sale)
+              self.list:UpdateMasterList(sale)
+            end)
+            :Then(function ()
+              if Settings.debugMode then
+                CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
+              end
+            end)
+      end)
+      :Finally(function ()
+        if Settings.debugMode then
+          CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
         end
-    end
+      end)
 end
 
 function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
@@ -1300,11 +1315,13 @@ local function onAddOnLoaded(eventCode, addonName)
 
     DefaultSettings = {}
     DefaultSettings.keepSalesForDays = 30
+    DefaultSettings.debugMode = false
 
     ArkadiusTradeToolsSalesData = ArkadiusTradeToolsSalesData or {}
     ArkadiusTradeToolsSalesData.settings = ArkadiusTradeToolsSalesData.settings or {}
 
     Settings = ArkadiusTradeToolsSalesData.settings
+    Settings.debugMode = Settings.debugMode or DefaultSettings.debugMode
     Settings.guilds = Settings.guilds or {}
     Settings.guildRoster = Settings.guildRoster or {}
     Settings.tooltips = Settings.tooltips or {}
