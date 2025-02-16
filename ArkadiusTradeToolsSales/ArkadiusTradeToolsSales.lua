@@ -441,7 +441,6 @@ end
 
 function ArkadiusTradeToolsSales:GetSettingsMenu()
     local settingsMenu = {}
-    local guildNames = {}
 
     table.insert(settingsMenu, {type = "header", name = L["ATT_STR_SALES"]})
     table.insert(settingsMenu, {type = "checkbox", name = L["ATT_STR_ENABLE_GUILD_ROSTER_EXTENSIONS"], getFunc = function() return self.GuildRoster:IsEnabled() end, setFunc = function(bool) self.GuildRoster:Enable(bool) end})
@@ -453,18 +452,30 @@ function ArkadiusTradeToolsSales:GetSettingsMenu()
     table.insert(settingsMenu, {type = "checkbox", name = L["ATT_STR_ENABLE_TOOLTIP_EXTENSIONS_CRAFTING"], tooltip=L['ATT_STR_ENABLE_TOOLTIP_EXTENSIONS_CRAFTING_TOOLTIP'], getFunc = function() return self.TooltipExtensions:IsCraftingEnabled() end, setFunc = function(bool) self.TooltipExtensions:EnableCrafting(bool) end, disabled = function() return not self.TooltipExtensions:IsEnabled() end})
     table.insert(settingsMenu, {type = "checkbox", name = L["ATT_STR_ENABLE_INVENTORY_PRICES"], getFunc = function() return self.InventoryExtensions:IsEnabled() end, setFunc = function(bool) self.InventoryExtensions:Enable(bool) end, warning = L["ATT_STR_ENABLE_INVENTORY_PRICES_WARNING"]})
 
-    for guildName, _ in pairs(TemporaryVariables.guildNamesLowered) do
-        table.insert(guildNames, guildName)
+    local guildNames = {}
+    TemporaryVariables.guildNamesLowered = {}
+
+    for i = 1, 5 do
+        local guildId = GetGuildId(i)
+        if guildId then
+            local guildName = GetGuildName(guildId)
+            if guildName and guildName ~= "" then
+                local guildNameLowered = zo_strlower(guildName)
+                TemporaryVariables.guildNamesLowered[guildName] = guildNameLowered
+                table.insert(guildNames, guildName)
+            end
+        end
     end
 
     table.sort(guildNames)
 
     table.insert(settingsMenu, {type = "description", text = L["ATT_STR_KEEP_SALES_FOR_DAYS"]})
 
-    for _, guildName in pairs(guildNames) do
-        table.insert(settingsMenu, {type = "slider", name = guildName, min = 1, max = 30, getFunc = function() return Settings.guilds[guildName].keepSalesForDays end, setFunc = function(value) Settings.guilds[guildName].keepSalesForDays = value end})
+    for _, guildName in ipairs(guildNames) do
+        table.insert(settingsMenu, { type = "slider", name = guildName, min = 1, max = 30, getFunc = function() return Settings.guilds[guildName] and Settings.guilds[guildName].keepSalesForDays or DefaultSettings.keepSalesForDays end, setFunc = function(value) Settings.guilds[guildName] = Settings.guilds[guildName] or {} Settings.guilds[guildName].keepSalesForDays = value end  })
     end
 
+    table.insert(settingsMenu, {type = "description", text = "Debug"})
     table.insert(settingsMenu, {type = "checkbox", name = "Enable Debug Messages", tooltip = "Show debug messages in chat when loading sales data", getFunc = function () return Settings.debugMode end, setFunc = function (value) Settings.debugMode = value end, })
     table.insert(settingsMenu, {type = "custom"})
 
