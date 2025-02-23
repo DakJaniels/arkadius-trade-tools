@@ -255,7 +255,7 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
         -- TODO: This should probably be handled via an event
         ArkadiusTradeTools.guildStatus:SetBusy(guildIndex)
         if not latestEventId or CompareId64s(eventId, latestEventId) > 0 then
-            guildSettings.latestEventId = Id64ToString(eventId)
+            guildSettings.latestEventId = zo_getSafeId64Key(eventId)
             latestEventId = eventId
         end
         local isNewEvent = self:AddEvent(guildId, eventId, eventType, eventTime, seller, buyer, quantity, itemLink, price, tax)
@@ -529,25 +529,21 @@ end
 
 function ArkadiusTradeToolsSales:LoadSales()
   local task = ASYNC:Create('LoadSales')
-  task:For(1, #SalesTables)
-      :Do(function (t)
-        local salesTable = SalesTables[t][self.serverName].sales
-        task:For(pairs(salesTable))
-            :Do(function (_, sale)
-              self:UpdateTemporaryVariables(sale)
-              self.list:UpdateMasterList(sale)
-            end)
-            :Then(function ()
-              if Settings.debugMode then
-                CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
-              end
-            end)
-      end)
-      :Finally(function ()
-        if Settings.debugMode then
-          CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
-        end
-      end)
+  task:For(1, #SalesTables):Do(function (t)
+    local salesTable = SalesTables[t][self.serverName].sales
+    task:For(pairs(salesTable)):Do(function (eventId, sale)
+      self:UpdateTemporaryVariables(sale)
+      self.list:UpdateMasterList(sale)
+    end):Then(function ()
+      if Settings.debugMode then
+        CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
+      end
+    end)
+  end):Finally(function ()
+    if Settings.debugMode then
+      CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
+    end
+  end)
 end
 
 function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
@@ -639,7 +635,7 @@ function ArkadiusTradeToolsSales:AddEvent(guildId, eventId, eventType, eventTime
     end
 
     local guildName = GetGuildName(guildId)
-    local eventIdString = Id64ToString(eventId)
+    local eventIdString = zo_getSafeId64Key(eventId)
     -- We'll use the traditional number if there's no overflow so we don't duplicate sales
     -- in a different sales table. Otherwise, use the new way to distribute and use the stringified ID.
     -- The only other way to solve this would be to iterate sales in each table, replace
