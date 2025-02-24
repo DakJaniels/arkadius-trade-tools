@@ -559,6 +559,7 @@ function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
     --local itemTimeStampHour = ArkadiusTradeTools:GetStartOfHourFromTimeStamp(sale.timeStamp)
 
     --- Store item link information ---
+	local _
     local itemName
     local itemType
     local itemLevel
