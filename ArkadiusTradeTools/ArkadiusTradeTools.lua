@@ -115,38 +115,39 @@ function ArkadiusTradeTools:Initialize()
     buttonDonate = statusBar:GetNamedChild("Donate")
     buttonDonate:SetHidden(true)
   end
-  -- I'd like to move this out of here and into somewhere else. It feels bad to reference a module by name
-  self.guilds = {}
-  for i = 1, 5 do
-    local guildId = GetGuildId(i)
-    table.insert(self.guilds, { id = guildId, linked = false })
-  end
-  -- This function exists to update the status indicators upon a new load when there aren't events
-  EVENT_MANAGER:RegisterForUpdate('ArkadiusTradeToolsGuildStatus', 1000, function()
-    Logger:Verbose("ArkadiusTradeToolsGuildStatus callback")
-    local setOne = false
-    for i, guild in ipairs(self.guilds) do
-      if guild.id == 0 then
-        self.guildStatus:SetNotActive(i)
-      elseif self.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache and not guild.linked then
-          if self.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache:HasLinked() then
-            Logger:Info(GetGuildName(guild.id), "is linked. Marking done.")
-            self.guildStatus:SetDone(i)
-            guild.linked = true
-          else
-            Logger:Info(GetGuildName(guild.id), "is not linked. Marking not done.")
-            self.guildStatus:SetNotDone(i)
-          end
-          setOne = true
-      end
-    end
-    if not setOne then
-        Logger:Info("All guilds linked. Removing status update function.")
-        EVENT_MANAGER:UnregisterForUpdate('ArkadiusTradeToolsGuildStatus')
-    end
-  end)
-  -- end)
 end
+
+-- I'd like to move this out of here and into somewhere else. It feels bad to reference a module by name
+ArkadiusTradeTools.guilds = {}
+for i = 1, 5 do
+  local guildId = GetGuildId(i)
+  table.insert(ArkadiusTradeTools.guilds, { id = guildId, linked = false })
+end
+
+-- This function exists to update the status indicators upon a new load when there aren't events
+EVENT_MANAGER:RegisterForUpdate('ArkadiusTradeToolsGuildStatus', 1000, function ()
+  Logger:Verbose('ArkadiusTradeToolsGuildStatus callback')
+  local setOne = false
+  for i, guild in ipairs(ArkadiusTradeTools.guilds) do
+    if guild.id == 0 then
+      ArkadiusTradeTools.guildStatus:SetNotActive(i)
+    elseif ArkadiusTradeTools.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache and not guild.linked then
+      if ArkadiusTradeTools.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache:HasLinked() then
+        Logger:Info(GetGuildName(guild.id), 'is linked. Marking done.')
+        ArkadiusTradeTools.guildStatus:SetDone(i)
+        guild.linked = true
+      else
+        Logger:Info(GetGuildName(guild.id), 'is not linked. Marking not done.')
+        ArkadiusTradeTools.guildStatus:SetNotDone(i)
+      end
+      setOne = true
+    end
+  end
+  if not setOne then
+    Logger:Info('All guilds linked. Removing status update function.')
+    EVENT_MANAGER:UnregisterForUpdate('ArkadiusTradeToolsGuildStatus')
+  end
+end)
 
 function ArkadiusTradeTools:Finalize()
   for moduleName, moduleObject in pairs(self.Modules) do
