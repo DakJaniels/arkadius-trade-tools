@@ -275,7 +275,7 @@ local function createProcessorCallback(self, processor, guildIndex, guildSetting
     ArkadiusTradeTools.guildStatus:SetBusy(guildIndex)
 
     -- Update latest event ID
-    if not latestEventId or CompareId64s(info.eventId, latestEventId) > 0 then
+    if not latestEventId or (info.eventId > latestEventId) then
       guildSettings.latestEventId = tostring(info.eventId)
       latestEventId = info.eventId
     end
@@ -417,12 +417,7 @@ function ArkadiusTradeToolsSales:RegisterLibHistoire()
 
     -- Configure start condition
     if guildSettings.latestEventId then
-      -- Convert legacy ID if necessary
-      if string.find(guildSettings.latestEventId, ':') then
-        latestEventId = LibHistoire:ConvertArtificialLegacyId64ToEventId(guildSettings.latestEventId)
-      else
-        latestEventId = tonumber(guildSettings.latestEventId)
-      end
+      latestEventId = tonumber(guildSettings.latestEventId)
 
       if latestEventId then
         logger:Info('Latest event id for', guildName, latestEventId)
@@ -482,7 +477,6 @@ function ArkadiusTradeToolsSales:RegisterLibHistoire()
     end
   end)
 
-  -- Replace references to guildListeners with guildProcessors in the rest of the code
   ArkadiusTradeTools:FireCallbacks(ArkadiusTradeTools.EVENTS.LIBHISTOIRE_REGISTERED)
 end
 
