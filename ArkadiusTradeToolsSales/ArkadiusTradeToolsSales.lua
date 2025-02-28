@@ -237,8 +237,8 @@ end
 
 -- This update and the content change needs to be internalized somehow.
 -- Either a new control (Updatable Tooltip?) or an optional parameter for our current tooltip
-local function updateStatusTooltip(listener, statusIndicator)
-  local eventsRemaining, speed, timeRemaining = listener:GetPendingEventMetrics()
+local function updateStatusTooltip(processor, statusIndicator)
+  local eventsRemaining, speed, timeRemaining = processor:GetPendingEventMetrics()
   timeRemaining = math.floor(timeRemaining / 60)
   -- Instead of setting this directly, it might be better for the SetBusy function
   -- to take optional parameters for showing the extended statistics
@@ -252,34 +252,49 @@ local function updateStatusTooltip(listener, statusIndicator)
   )
 end
 
-local function createListenerCallback(self, listener, guildIndex, guildSettings, latestEventId, isRescan)
+local function createProcessorCallback(self, processor, guildIndex, guildSettings, latestEventId, isRescan)
   local guildId = GetGuildId(guildIndex)
   local guildName = GetGuildName(guildId)
   local updateFunction
   local rescanCount = 0
   local eventsToScan
   local isRescanComplete = false
-  return function (eventType, eventId, eventTime, seller, buyer, quantity, itemLink, price, tax)
-    -- logger:Verbose("Event received for", guildName)
+
+  -- Create the event callback for the processor
+  local function eventCallback(event)
+    -- Extract event info from the event object
+    local info = event:GetEventInfo()
+
+    -- Only process ITEM_SOLD events
+    if info.eventType ~= GUILD_HISTORY_TRADER_EVENT_ITEM_SOLD then
+      return
+    end
+
     local statusIndicator = ArkadiusTradeTools.guildStatus:GetNamedChild('Indicator' .. guildIndex)
     -- TODO: This should probably be handled via an event
     ArkadiusTradeTools.guildStatus:SetBusy(guildIndex)
-    if not latestEventId or CompareId64s(eventId, latestEventId) > 0 then
-      guildSettings.latestEventId = zo_getSafeId64Key(eventId)
-      latestEventId = eventId
+
+    -- Update latest event ID
+    if not latestEventId or CompareId64s(info.eventId, latestEventId) > 0 then
+      guildSettings.latestEventId = tostring(info.eventId)
+      latestEventId = info.eventId
     end
-    local isNewEvent = self:AddEvent(guildId, eventId, eventType, eventTime, seller, buyer, quantity, itemLink, price, tax)
-    local eventsRemaining = listener:GetPendingEventMetrics()
+
+    -- Add the event to our system
+    local isNewEvent = self:AddEvent(event)
+
+
+    local eventsRemaining = processor:GetPendingEventMetrics()
     if not eventsToScan then
       eventsToScan = eventsRemaining
     end
-    -- logger:Verbose(eventsRemaining, "events remaining for", guildName)
+
     if isRescan and isNewEvent then
       rescanCount = rescanCount + 1
     end
+
     if eventsRemaining == 0 then
       if updateFunction then
-        -- logger:Debug('Unregistering for update')
         EVENT_MANAGER:UnregisterForUpdate(updateFunction)
         updateFunction = nil
       end
@@ -287,79 +302,188 @@ local function createListenerCallback(self, listener, guildIndex, guildSettings,
       if isRescan and not isRescanComplete then
         local message = zo_strformat('Rescan complete for <<1>> (<<2>> transactions). Found <<3>> missing sales events.', guildName, eventsToScan, rescanCount)
         CHAT_ROUTER:AddSystemMessage(message)
-        -- logger:Debug(message)
         isRescanComplete = true
       end
     elseif not updateFunction then
-      -- logger:Debug('Registering for update')
       updateFunction = 'ArkadiusTradeToolsSalesGuildStatusUpdate' .. guildIndex
       EVENT_MANAGER:RegisterForUpdate(updateFunction, 100, function ()
-        updateStatusTooltip(listener, statusIndicator)
+        -- We only need to update the tooltip for the current processor
+        -- The processor is already in the closure, so we can use it directly
+        updateStatusTooltip(processor, statusIndicator)
       end)
     end
+
     if (self.list:IsHidden()) then
       self.list:BuildMasterList()
     else
       self.list:RefreshData()
     end
   end
+
+  -- Return the event callback
+  return eventCallback
+end
+
+local function onStopCallback(reason)
+  logger:Info('Processor stopped, reason:', reason)
 end
 
 function ArkadiusTradeToolsSales:RescanHistory()
-  -- logger:Info('Rescanning LibHistoire events')
-  local function UpdateListener(guildIndex, guildId)
+  logger:Info('Rescanning LibHistoire events')
+
+  local function UpdateProcessor(guildIndex, guildId)
     local guildName = GetGuildName(guildId)
-    -- logger:Info("Rescanning guild", guildName)
-    local listener = self.guildListeners[guildId]
-    listener:Stop()
-    listener = LibHistoire:CreateGuildHistoryListener(guildId, GUILD_HISTORY_STORE)
-    -- self.guildListeners[guildId] = listener
+    logger:Info('Rescanning guild', guildName)
+
+    -- Stop existing processor if any
+    if self.guildProcessors and self.guildProcessors[guildId] then
+      self.guildProcessors[guildId]:Stop()
+    end
+
+    -- Create a new processor
+    local processor = LibHistoire:CreateGuildHistoryProcessor(guildId, GUILD_HISTORY_EVENT_CATEGORY_TRADER, self.NAME)
+    if not processor then
+      logger:Error('Failed to create processor for guild', guildName)
+      return
+    end
+
+    -- Configure the processor
     local guildSettings = Settings.guilds[guildName]
     local latestEventId
     local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
-    -- logger:Info("Setting starting event time of", olderThanTimeStamp, "for", guildName)
-    listener:SetAfterEventTime(olderThanTimeStamp)
-    listener:SetEventCallback(createListenerCallback(self, listener, guildIndex, guildSettings, latestEventId, true))
-    listener:Start()
+
+    -- Set time range for the rescan
+    processor:SetAfterEventTime(olderThanTimeStamp)
+
+    -- Configure callback and start the processor
+    local eventCallback = createProcessorCallback(self, processor, guildIndex, guildSettings, latestEventId, true)
+    processor:SetNextEventCallback(eventCallback)
+    processor:SetOnStopCallback(onStopCallback)
+    processor:SetStopOnLastCachedEvent(false) -- We want to keep listening after the rescan
+
+    -- Start the processor
+    local started = processor:Start()
+    if not started then
+      logger:Error('Failed to start processor for guild', guildName)
+    else
+      logger:Info('Started processor for guild', guildName)
+      self.guildProcessors[guildId] = processor
+    end
   end
+
   for i = 1, GetNumGuilds() do
     local guildId = GetGuildId(i)
     local guildName = GetGuildName(guildId)
     Settings.guilds[guildName] = Settings.guilds[guildName] or {}
     Settings.guilds[guildName].keepSalesForDays = Settings.guilds[guildName].keepSalesForDays or DefaultSettings.keepSalesForDays
-    UpdateListener(i, guildId)
+    UpdateProcessor(i, guildId)
   end
 end
 
 function ArkadiusTradeToolsSales:RegisterLibHistoire()
-  -- logger:Info('Registering LibHistoire')
-  self.guildListeners = {}
-  local function SetUpListener(guildIndex, guildId)
+  logger:Info('Registering LibHistoire')
+
+  self.guildProcessors = {}
+
+  -- Register for category linked events to update guild status
+  LibHistoire:RegisterCallback(LibHistoire.callback.CATEGORY_LINKED, function (guildId, category)
+    if category == GUILD_HISTORY_EVENT_CATEGORY_TRADER then
+      logger:Info('Category linked for guild', GetGuildName(guildId))
+      -- Find the guild index for this guild ID
+      for i, guild in ipairs(ArkadiusTradeTools.guilds) do
+        if guild.id == guildId then
+          ArkadiusTradeTools.guildStatus:SetDone(i)
+          guild.linked = true
+          break
+        end
+      end
+    end
+  end)
+
+  local function SetUpProcessor(guildIndex, guildId)
     local guildName = GetGuildName(guildId)
-    -- logger:Info("Setting up for guild", guildName)
-    local listener = LibHistoire:CreateGuildHistoryListener(guildId, GUILD_HISTORY_STORE)
-    self.guildListeners[guildId] = listener
+    logger:Info('Setting up processor for guild', guildName)
+
+    -- Create processor
+    local processor = LibHistoire:CreateGuildHistoryProcessor(guildId, GUILD_HISTORY_EVENT_CATEGORY_TRADER, self.NAME)
+    if not processor then
+      logger:Error('Failed to create processor for guild', guildName)
+      return
+    end
+
+    -- Configure the processor
     local guildSettings = Settings.guilds[guildName]
     local latestEventId
+
+    -- Configure start condition
     if guildSettings.latestEventId then
-      latestEventId = StringToId64(guildSettings.latestEventId)
-      listener:SetAfterEventId(latestEventId)
-      -- logger:Info("Latest event id for", guildName, guildSettings.latestEventId)
+      -- Convert legacy ID if necessary
+      if string.find(guildSettings.latestEventId, ':') then
+        latestEventId = LibHistoire:ConvertArtificialLegacyId64ToEventId(guildSettings.latestEventId)
+      else
+        latestEventId = tonumber(guildSettings.latestEventId)
+      end
+
+      if latestEventId then
+        logger:Info('Latest event id for', guildName, latestEventId)
+      else
+        logger:Warn('Invalid latest event id for', guildName, '- starting from time range')
+        local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
+        processor:SetAfterEventTime(olderThanTimeStamp)
+      end
     else
+      logger:Info('No latest event id for', guildName, '- starting from time range')
       local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
-      listener:SetAfterEventTime(olderThanTimeStamp)
-      -- logger:Info("No latest event id for", guildName)
+      processor:SetAfterEventTime(olderThanTimeStamp)
     end
-    listener:SetEventCallback(createListenerCallback(self, listener, guildIndex, guildSettings, latestEventId))
-    listener:Start()
+
+    -- Set callbacks
+    local eventCallback = createProcessorCallback(self, processor, guildIndex, guildSettings, latestEventId)
+
+    -- Use the StreamingStart convenience method
+    local started = processor:StartStreaming(latestEventId, eventCallback)
+    if not started then
+      logger:Error('Failed to start processor for guild', guildName)
+    else
+      logger:Info('Started processor for guild', guildName)
+      self.guildProcessors[guildId] = processor
+    end
   end
+
   for i = 1, GetNumGuilds() do
     local guildId = GetGuildId(i)
     local guildName = GetGuildName(guildId)
     Settings.guilds[guildName] = Settings.guilds[guildName] or {}
     Settings.guilds[guildName].keepSalesForDays = Settings.guilds[guildName].keepSalesForDays or DefaultSettings.keepSalesForDays
-    SetUpListener(i, guildId)
+    SetUpProcessor(i, guildId)
   end
+
+  -- Also register for managed range events to handle lost or found events
+  LibHistoire:RegisterCallback(LibHistoire.callback.MANAGED_RANGE_LOST, function (guildId, category)
+    if category == GUILD_HISTORY_EVENT_CATEGORY_TRADER then
+      logger:Warn('Managed range lost for guild', GetGuildName(guildId))
+      -- Find the guild index for this guild ID
+      for i, guild in ipairs(ArkadiusTradeTools.guilds) do
+        if guild.id == guildId then
+          ArkadiusTradeTools.guildStatus:SetNotDone(i)
+          guild.linked = false
+          break
+        end
+      end
+    end
+  end)
+
+  LibHistoire:RegisterCallback(LibHistoire.callback.MANAGED_RANGE_FOUND, function (guildId, category)
+    if category == GUILD_HISTORY_EVENT_CATEGORY_TRADER then
+      logger:Info('Managed range found for guild', GetGuildName(guildId))
+      -- We don't set to "done" here yet, as we're waiting for CATEGORY_LINKED which indicates
+      -- the processor has linked the managed range to present events
+      -- This is just a notification that a managed range exists/was found
+    end
+  end)
+
+  -- Replace references to guildListeners with guildProcessors in the rest of the code
+  ArkadiusTradeTools:FireCallbacks(ArkadiusTradeTools.EVENTS.LIBHISTOIRE_REGISTERED)
 end
 
 ---------------------------------------------------------------------------------------
@@ -571,6 +695,15 @@ function ArkadiusTradeToolsSales:LoadSales()
   end)
 end
 
+-- function ArkadiusTradeToolsSales:LoadSales()
+--   for t = 1, #SalesTables do
+--       for eventId, sale in pairs(SalesTables[t][self.serverName].sales) do
+--           self:UpdateTemporaryVariables(sale)
+--           self.list:UpdateMasterList(sale)
+--       end
+--   end
+-- end
+
 function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
   local tempVars = TemporaryVariables -- Cache the parent table to reduce table lookups
   local itemLink = sale.itemLink
@@ -697,29 +830,43 @@ function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
   guildSales[guildName].displayNames[sellerName].sales[#guildSales[guildName].displayNames[sellerName].sales + 1] = saleIndex
 end
 
--- Maybe call this from OnGuildHistoryEventStore?
--- eventId, eventType, eventTime, seller, buyer, quantity, itemLink, price, tax
-function ArkadiusTradeToolsSales:AddEvent(guildId, eventId, eventType, eventTimeStamp, seller, buyer, quantity, itemLink, price, tax)
+---
+--- @param event ZO_GuildHistoryEventData_Base
+--- @return boolean
+function ArkadiusTradeToolsSales:AddEvent(event)
+  local info = event:GetEventInfo()
+  local buyerName = DecorateDisplayName(info.buyerDisplayName)
+  local sellerName = DecorateDisplayName(info.sellerDisplayName)
+  local guildId = event:GetGuildId()
+  local eventId = info.eventId
+  local type = info.eventType
+  local eventTimeStamp = info.timestampS
+  local seller = sellerName
+  local buyer = buyerName
+  local quantity = info.quantity
+  local itemLink = info.itemLink
+  local price = info.price
+  local tax = info.tax
   local unitPrice = nil
 
-  if (eventType ~= GUILD_EVENT_ITEM_SOLD) then
+  if (type ~= GUILD_HISTORY_TRADER_EVENT_ITEM_SOLD) then
     return false
   end
 
   local guildName = GetGuildName(guildId)
-  local eventIdString = zo_getSafeId64Key(eventId)
-  -- We'll use the traditional number if there's no overflow so we don't duplicate sales
-  -- in a different sales table. Otherwise, use the new way to distribute and use the stringified ID.
-  -- The only other way to solve this would be to iterate sales in each table, replace
-  -- the keys, and redistribute them across tables—and that doesn't seem worth it right now.
-  local eventIdNumber = tonumber(eventIdString)
-  local hashNumber = eventIdNumber > 0 and eventIdNumber or tonumber(eventIdString:sub(-9))
-  local dataIndex = floor((hashNumber % (NUM_SALES_TABLES * 2)) / 2) + 1
-  -- logger:Debug('ArkadiusTradeToolsSales:EventId', eventIdString, eventIdNumber, hashNumber, dataIndex)
+  local eventIdString = tostring(eventId)
+
+  -- Use a consistent hashing method to distribute sales across tables
+  local hash = 0
+  for i = 1, #eventIdString do
+    hash = (hash * 31 + string.byte(eventIdString, i)) % (NUM_SALES_TABLES * 2)
+  end
+  local dataIndex = floor(hash / 2) + 1
+
   local dataTable = SalesTables[dataIndex][self.serverName]
   if (eventIdString ~= '0') then
     -- We don't want to use a number key stringified and duplicate the data
-    if (dataTable.sales[eventIdString] == nil and dataTable.sales[eventIdNumber] == nil) then
+    if (dataTable.sales[eventIdString] == nil) then
       -- Add event to data table --
       dataTable.sales[eventIdString] = {}
       dataTable.sales[eventIdString].timeStamp = eventTimeStamp

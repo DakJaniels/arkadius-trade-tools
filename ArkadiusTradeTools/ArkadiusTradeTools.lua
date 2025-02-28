@@ -131,8 +131,11 @@ EVENT_MANAGER:RegisterForUpdate('ArkadiusTradeToolsGuildStatus', 1000, function 
   for i, guild in ipairs(ArkadiusTradeTools.guilds) do
     if guild.id == 0 then
       ArkadiusTradeTools.guildStatus:SetNotActive(i)
-    elseif ArkadiusTradeTools.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache and not guild.linked then
-      if ArkadiusTradeTools.Modules.Sales.guildListeners[guild.id].listeners[1].categoryCache:HasLinked() then
+    elseif ArkadiusTradeTools.Modules.Sales.guildProcessors and ArkadiusTradeTools.Modules.Sales.guildProcessors[guild.id] and not guild.linked then
+      local processor = ArkadiusTradeTools.Modules.Sales.guildProcessors[guild.id]
+      -- Since we're now using processors, we need a different way to check if the category is linked
+      -- We'll use the IsRunning method as a proxy for now - if it's running, it's probably linked
+      if processor:IsRunning() then
         Logger:Info(GetGuildName(guild.id), 'is linked. Marking done.')
         ArkadiusTradeTools.guildStatus:SetDone(i)
         guild.linked = true
