@@ -261,7 +261,7 @@ local function createProcessorCallback(self, processor, guildIndex, guildSetting
   local isRescanComplete = false
 
   -- Convert latestEventId to a number if it's a string
-  if latestEventId and type(latestEventId) == "string" then
+  if latestEventId and type(latestEventId) == 'string' then
     latestEventId = tonumber(latestEventId)
   end
 
@@ -329,10 +329,6 @@ local function createProcessorCallback(self, processor, guildIndex, guildSetting
   return eventCallback
 end
 
-local function onStopCallback(reason)
-  logger:Info('Processor stopped, reason:', reason)
-end
-
 function ArkadiusTradeToolsSales:RescanHistory()
   logger:Info('Rescanning LibHistoire events')
 
@@ -359,19 +355,26 @@ function ArkadiusTradeToolsSales:RescanHistory()
       latestEventId = tonumber(latestEventId)
     end
 
-    local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
+    -- Calculate time range
+    local startTime = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
+    local endTime = GetTimeStamp() -- Current time
 
-    -- Set time range for the rescan
-    processor:SetAfterEventTime(olderThanTimeStamp)
-
-    -- Configure callback and start the processor
+    -- Create event callback
     local eventCallback = createProcessorCallback(self, processor, guildIndex, guildSettings, latestEventId, true)
-    processor:SetNextEventCallback(eventCallback)
-    processor:SetOnStopCallback(onStopCallback)
-    processor:SetStopOnLastCachedEvent(false) -- We want to keep listening after the rescan
 
-    -- Start the processor
-    local started = processor:Start()
+    -- Handle when finished
+    local function finishedCallback(reason)
+      logger:Info('Rescan processor stopped, reason:', reason)
+
+      -- If we completed the time range scan or reached the last cached event
+      if reason == LibHistoire.StopReason.ITERATION_COMPLETED or reason == LibHistoire.StopReason.LAST_CACHED_EVENT_REACHED then
+        -- Now, start streaming for live updates
+        self:StartLiveUpdatesAfterRescan(guildId, guildIndex, guildSettings, latestEventId)
+      end
+    end
+
+    -- Start iterating through the time range
+    local started = processor:StartIteratingTimeRange(startTime, endTime, eventCallback, finishedCallback)
     if not started then
       logger:Error('Failed to start processor for guild', guildName)
     else
@@ -389,9 +392,34 @@ function ArkadiusTradeToolsSales:RescanHistory()
   end
 end
 
+-- New helper function to start live updates after a rescan completes
+function ArkadiusTradeToolsSales:StartLiveUpdatesAfterRescan(guildId, guildIndex, guildSettings, lastEventId)
+  local guildName = GetGuildName(guildId)
+  logger:Info('Starting live updates after rescan for guild', guildName)
+
+  -- Create a new processor for live updates
+  local processor = LibHistoire:CreateGuildHistoryProcessor(guildId, GUILD_HISTORY_EVENT_CATEGORY_TRADER, self.NAME)
+  if not processor then
+    logger:Error('Failed to create live processor for guild', guildName)
+    return
+  end
+
+  -- Create event callback (not in rescan mode)
+  local eventCallback = createProcessorCallback(self, processor, guildIndex, guildSettings, lastEventId, false)
+
+  -- Start streaming for new events
+  local started = processor:StartStreaming(lastEventId, eventCallback)
+  if not started then
+    logger:Error('Failed to start live processor for guild', guildName)
+  else
+    logger:Info('Started live processor for guild', guildName)
+    self.guildProcessors[guildId] = processor
+  end
+end
+
 function ArkadiusTradeToolsSales:RegisterLibHistoire()
   logger:Info('Registering LibHistoire')
-  ---@type table<integer,GuildHistoryEventProcessor>
+  --- @type table<integer,GuildHistoryEventProcessor>
   self.guildProcessors = {}
 
   -- Register for category linked events to update guild status
