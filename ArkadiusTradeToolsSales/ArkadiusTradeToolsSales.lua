@@ -260,6 +260,11 @@ local function createProcessorCallback(self, processor, guildIndex, guildSetting
   local eventsToScan
   local isRescanComplete = false
 
+  -- Convert latestEventId to a number if it's a string
+  if latestEventId and type(latestEventId) == "string" then
+    latestEventId = tonumber(latestEventId)
+  end
+
   -- Create the event callback for the processor
   local function eventCallback(event)
     -- Extract event info from the event object
@@ -274,15 +279,15 @@ local function createProcessorCallback(self, processor, guildIndex, guildSetting
     -- TODO: This should probably be handled via an event
     ArkadiusTradeTools.guildStatus:SetBusy(guildIndex)
 
-    -- Update latest event ID
-    if not latestEventId or (info.eventId > latestEventId) then
-      guildSettings.latestEventId = tostring(info.eventId)
-      latestEventId = info.eventId
+    -- Update latest event ID - ensure numeric comparison
+    local eventId = tonumber(info.eventId)
+    if not latestEventId or (eventId > latestEventId) then
+      guildSettings.latestEventId = tostring(eventId)
+      latestEventId = eventId
     end
 
     -- Add the event to our system
     local isNewEvent = self:AddEvent(event)
-
 
     local eventsRemaining = processor:GetPendingEventMetrics()
     if not eventsToScan then
@@ -349,7 +354,11 @@ function ArkadiusTradeToolsSales:RescanHistory()
 
     -- Configure the processor
     local guildSettings = Settings.guilds[guildName]
-    local latestEventId
+    local latestEventId = guildSettings.latestEventId
+    if latestEventId then
+      latestEventId = tonumber(latestEventId)
+    end
+
     local olderThanTimeStamp = GetTimeStamp() - Settings.guilds[guildName].keepSalesForDays * SECONDS_IN_DAY
 
     -- Set time range for the rescan
@@ -382,7 +391,7 @@ end
 
 function ArkadiusTradeToolsSales:RegisterLibHistoire()
   logger:Info('Registering LibHistoire')
-
+  ---@type table<integer,GuildHistoryEventProcessor>
   self.guildProcessors = {}
 
   -- Register for category linked events to update guild status
