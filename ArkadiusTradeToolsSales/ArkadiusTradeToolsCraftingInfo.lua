@@ -1,4 +1,5 @@
 local ArkadiusTradeToolsSales = ArkadiusTradeTools.Modules.Sales
+local Settings = ArkadiusTradeToolsSalesData.settings
 
 local MASTER_WRIT_TYPE_BLACKSMITHING = 1
 local MASTER_WRIT_TYPE_TAILORING     = 2
@@ -224,7 +225,9 @@ function ArkadiusTradeToolsSales:GetMasterWritComponents(itemLink)
     local writType = MASTER_WRIT_TYPES[itemId]
 
     if (writType == nil) then
-        -- CHAT_ROUTER:AddSystemMessage("ATT: Unknown master writ item id " .. itemId)
+      if Settings.debugMode.writs then
+          CHAT_ROUTER:AddSystemMessage("ATT: Unknown master writ item id " .. itemId)
+      end
 
         return {}
     end
