@@ -1565,6 +1565,12 @@ local function PrepareTemporaryVariables()
   end
 end
 
+--- Returns whether debug mode for master writs is enabled
+--- @return boolean @True if debug mode for master writs is enabled
+function ArkadiusTradeToolsSales:IsDebugWrits()
+  return Settings.debugModewrits
+end
+
 local function onAddOnLoaded(eventCode, addonName)
   if (addonName ~= ArkadiusTradeToolsSales.NAME) then
     return
