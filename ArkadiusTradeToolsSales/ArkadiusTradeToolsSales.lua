@@ -657,7 +657,7 @@ function ArkadiusTradeToolsSales:GetSettingsMenu()
 
   table.insert(settingsMenu, { type = 'description', text = 'Debug' })
   table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages', tooltip = 'Show debug messages in chat when loading sales data', getFunc = function () return Settings.debugMode end, setFunc = function (value) Settings.debugMode = value end, })
-  table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages for unknown master writs.', tooltip = 'Show debug messages in chat when mousing over unknown master writs.', getFunc = function () return Settings.debugMode.writs end, setFunc = function (value) Settings.debugMode.writs = value end, })
+  table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages for unknown master writs.', tooltip = 'Show debug messages in chat when mousing over unknown master writs.', getFunc = function () return Settings.debugModewrits end, setFunc = function (value) Settings.debugModewrits = value end, })
   table.insert(settingsMenu, { type = 'custom' })
 
   return settingsMenu
@@ -1541,14 +1541,14 @@ local function onAddOnLoaded(eventCode, addonName)
   DefaultSettings = {}
   DefaultSettings.keepSalesForDays = 30
   DefaultSettings.debugMode = false
-  DefaultSettings.debugMode.writs = false
+  DefaultSettings.debugModewrits = false
 
   ArkadiusTradeToolsSalesData = ArkadiusTradeToolsSalesData or {}
   ArkadiusTradeToolsSalesData.settings = ArkadiusTradeToolsSalesData.settings or {}
 
   Settings = ArkadiusTradeToolsSalesData.settings
   Settings.debugMode = Settings.debugMode or DefaultSettings.debugMode
-  Settings.debugMode.writs = Settings.debugMode.writs or DefaultSettings.debugMode.writs
+  Settings.debugModewrits = Settings.debugModewrits or DefaultSettings.debugModewrits
   Settings.guilds = Settings.guilds or {}
   Settings.guildRoster = Settings.guildRoster or {}
   Settings.tooltips = Settings.tooltips or {}

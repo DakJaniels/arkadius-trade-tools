@@ -225,7 +225,7 @@ function ArkadiusTradeToolsSales:GetMasterWritComponents(itemLink)
     local writType = MASTER_WRIT_TYPES[itemId]
 
     if (writType == nil) then
-      if Settings.debugMode.writs then
+      if Settings.debugModewrits then
           CHAT_ROUTER:AddSystemMessage("ATT: Unknown master writ item id " .. itemId)
       end
 
