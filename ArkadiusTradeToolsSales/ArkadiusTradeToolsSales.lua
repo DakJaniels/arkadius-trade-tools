@@ -658,6 +658,7 @@ function ArkadiusTradeToolsSales:GetSettingsMenu()
   table.insert(settingsMenu, { type = 'description', text = 'Debug' })
   table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages', tooltip = 'Show debug messages in chat when loading sales data', getFunc = function () return Settings.debugMode end, setFunc = function (value) Settings.debugMode = value end, })
   table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages for unknown master writs.', tooltip = 'Show debug messages in chat when mousing over unknown master writs.', getFunc = function () return Settings.debugModewrits end, setFunc = function (value) Settings.debugModewrits = value end, })
+  table.insert(settingsMenu, { type = 'checkbox', name = 'Use Asynchronous Loading', tooltip = 'Use the new asynchronous method for loading sales data (recommended). Disable to use the old synchronous method if you experience issues.', getFunc = function () return Settings.useAsyncLoading end, setFunc = function (value) Settings.useAsyncLoading = value end, warning = 'Changing this setting requires reloading the UI to take effect.' , requiresReload = true})
   table.insert(settingsMenu, { type = 'custom' })
 
   return settingsMenu
@@ -709,32 +710,42 @@ function ArkadiusTradeToolsSales:SaveSettings()
 end
 
 function ArkadiusTradeToolsSales:LoadSales()
-  local task = ASYNC:Create('LoadSales')
-  task:For(1, #SalesTables):Do(function (t)
-    local salesTable = SalesTables[t][self.serverName].sales
-    task:For(pairs(salesTable)):Do(function (eventId, sale)
-      self:UpdateTemporaryVariables(sale)
-      self.list:UpdateMasterList(sale)
-    end):Then(function ()
+  if Settings.useAsyncLoading then
+    -- Use the new asynchronous method
+    local task = ASYNC:Create('LoadSales')
+    task:For(1, #SalesTables):Do(function (t)
+      local salesTable = SalesTables[t][self.serverName].sales
+      task:For(pairs(salesTable)):Do(function (eventId, sale)
+        self:UpdateTemporaryVariables(sale)
+        self.list:UpdateMasterList(sale)
+      end):Then(function ()
+        if Settings.debugMode then
+          CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
+        end
+      end)
+    end):Finally(function ()
+      if Settings.debugMode then
+        CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
+      end
+    end)
+  else
+    -- Use the old synchronous method
+    for t = 1, #SalesTables do
+      for eventId, sale in pairs(SalesTables[t][self.serverName].sales) do
+        self:UpdateTemporaryVariables(sale)
+        self.list:UpdateMasterList(sale)
+      end
+      
       if Settings.debugMode then
         CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
       end
-    end)
-  end):Finally(function ()
+    end
+    
     if Settings.debugMode then
       CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
     end
-  end)
+  end
 end
-
--- function ArkadiusTradeToolsSales:LoadSales()
---   for t = 1, #SalesTables do
---       for eventId, sale in pairs(SalesTables[t][self.serverName].sales) do
---           self:UpdateTemporaryVariables(sale)
---           self.list:UpdateMasterList(sale)
---       end
---   end
--- end
 
 function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
   local tempVars = TemporaryVariables -- Cache the parent table to reduce table lookups
@@ -1394,12 +1405,35 @@ function ArkadiusTradeToolsSales:LookupDisplayName(loweredDisplayName)
   return TemporaryVariables.displayNamesLookup[loweredDisplayName]
 end
 
-function ArkadiusTradeToolsSales:IsItemLink(itemLink)
-  if (type(itemLink) == 'string') then
-    return (itemLink:match('|H%d:item:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+|h.*|h') ~= nil)
-  end
+-- Add cache table at the module level to persist between calls
+local itemLinkCache = {}
 
-  return false
+function ArkadiusTradeToolsSales:IsItemLink(itemLink)
+  if (type(itemLink) ~= 'string') then
+    return false
+  end
+  
+  -- Check cache first
+  local cachedResult = itemLinkCache[itemLink]
+  if cachedResult ~= nil then
+    return cachedResult
+  end
+  
+  -- Use a faster check for the basic structure of an item link
+  -- Look for |H at the start and |h at the end with "item:" somewhere near the start
+  local startPos, endPos = itemLink:find("|H%d:item:")
+  if not startPos or startPos ~= 1 then
+    itemLinkCache[itemLink] = false
+    return false
+  end
+  
+  -- Check for closing |h|h pattern
+  local endPattern = "|h"
+  local lastEndPos = itemLink:find(endPattern, -3, true)
+  
+  local result = lastEndPos ~= nil and lastEndPos > startPos
+  itemLinkCache[itemLink] = result
+  return result
 end
 
 function ArkadiusTradeToolsSales:NormalizeItemLink(itemLink)
@@ -1409,10 +1443,27 @@ function ArkadiusTradeToolsSales:NormalizeItemLink(itemLink)
 
   itemLink = itemLink:gsub('H1:', 'H0:')
 
-  --- Clear crafted flag and extra text---
-  local subString1 = itemLink:match('|H%d:item:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:%d+:')
-  local subString2 = itemLink:match(':%d+:%d+:%d+:%d+|h.*|h')
+  --- Clear crafted flag and extra text ---
+  -- Extract the first part up to the crafted flag position
+  local craftedFlagPos = itemLink:find(":", 1, true)
+  for i = 1, 17 do -- Skip past the first 17 colons to reach the crafted flag
+    craftedFlagPos = itemLink:find(":", craftedFlagPos + 1, true)
+    if not craftedFlagPos then
+      return nil -- Invalid format
+    end
+  end
+  
+  local subString1 = itemLink:sub(1, craftedFlagPos)
+  
+  -- Extract the trailing part
+  local lastPartPos = itemLink:find(":%d+:%d+:%d+:%d+|h", craftedFlagPos, false)
+  if not lastPartPos then
+    return nil -- Invalid format
+  end
+  
+  local subString2 = itemLink:sub(lastPartPos)
   subString2 = subString2:gsub('|h.*|h', '|h|h')
+  
   return subString1 .. '0' .. subString2
 end
 
@@ -1543,6 +1594,9 @@ local MAX_ITEM_QUALITY = ITEM_FUNCTIONAL_QUALITY_ITERATION_END
 ------------------- Local functions --------------------
 --------------------------------------------------------
 local function PrepareTemporaryVariables()
+  -- Clear the item link cache when resetting temporary variables
+  itemLinkCache = {}
+  
   TemporaryVariables = {}
   -- This is a inverse of displayNamesLowered because data that comes from the guild history API
   -- can have different casing than the guild roster API
@@ -1580,6 +1634,7 @@ local function onAddOnLoaded(eventCode, addonName)
   DefaultSettings.keepSalesForDays = 30
   DefaultSettings.debugMode = false
   DefaultSettings.debugModewrits = false
+  DefaultSettings.useAsyncLoading = true
 
   ArkadiusTradeToolsSalesData = ArkadiusTradeToolsSalesData or {}
   ArkadiusTradeToolsSalesData.settings = ArkadiusTradeToolsSalesData.settings or {}
@@ -1587,6 +1642,7 @@ local function onAddOnLoaded(eventCode, addonName)
   Settings = ArkadiusTradeToolsSalesData.settings
   Settings.debugMode = Settings.debugMode or DefaultSettings.debugMode
   Settings.debugModewrits = Settings.debugModewrits or DefaultSettings.debugModewrits
+  Settings.useAsyncLoading = Settings.useAsyncLoading ~= nil and Settings.useAsyncLoading or DefaultSettings.useAsyncLoading
   Settings.guilds = Settings.guilds or {}
   Settings.guildRoster = Settings.guildRoster or {}
   Settings.tooltips = Settings.tooltips or {}
@@ -1608,3 +1664,10 @@ local function onAddOnLoaded(eventCode, addonName)
 end
 
 EVENT_MANAGER:RegisterForEvent(ArkadiusTradeToolsSales.NAME, EVENT_ADD_ON_LOADED, onAddOnLoaded)
+
+-- Clear the cache when temporary variables are reset
+local originalPrepareTemporaryVariables = PrepareTemporaryVariables
+PrepareTemporaryVariables = function()
+  itemLinkCache = {}
+  originalPrepareTemporaryVariables()
+end
