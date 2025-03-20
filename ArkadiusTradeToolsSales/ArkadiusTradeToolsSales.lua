@@ -658,7 +658,6 @@ function ArkadiusTradeToolsSales:GetSettingsMenu()
   table.insert(settingsMenu, { type = 'description', text = 'Debug' })
   table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages', tooltip = 'Show debug messages in chat when loading sales data', getFunc = function () return Settings.debugMode end, setFunc = function (value) Settings.debugMode = value end, })
   table.insert(settingsMenu, { type = 'checkbox', name = 'Enable Debug Messages for unknown master writs.', tooltip = 'Show debug messages in chat when mousing over unknown master writs.', getFunc = function () return Settings.debugModewrits end, setFunc = function (value) Settings.debugModewrits = value end, })
-  table.insert(settingsMenu, { type = 'checkbox', name = 'Use Asynchronous Loading', tooltip = 'Use the new asynchronous method for loading sales data (recommended). Disable to use the old synchronous method if you experience issues.', getFunc = function () return Settings.useAsyncLoading end, setFunc = function (value) Settings.useAsyncLoading = value end, warning = 'Changing this setting requires reloading the UI to take effect.' , requiresReload = true})
   table.insert(settingsMenu, { type = 'custom' })
 
   return settingsMenu
@@ -710,7 +709,6 @@ function ArkadiusTradeToolsSales:SaveSettings()
 end
 
 function ArkadiusTradeToolsSales:LoadSales()
-  if Settings.useAsyncLoading then
     -- Use the new asynchronous method
     local task = ASYNC:Create('LoadSales')
     task:For(1, #SalesTables):Do(function (t)
@@ -728,23 +726,6 @@ function ArkadiusTradeToolsSales:LoadSales()
         CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
       end
     end)
-  else
-    -- Use the old synchronous method
-    for t = 1, #SalesTables do
-      for eventId, sale in pairs(SalesTables[t][self.serverName].sales) do
-        self:UpdateTemporaryVariables(sale)
-        self.list:UpdateMasterList(sale)
-      end
-      
-      if Settings.debugMode then
-        CHAT_ROUTER:AddSystemMessage(string.format('ATT: Loaded Sales Table %s: in %s', t, self.serverName))
-      end
-    end
-    
-    if Settings.debugMode then
-      CHAT_ROUTER:AddSystemMessage('ATT: Loading Sales Complete.')
-    end
-  end
 end
 
 function ArkadiusTradeToolsSales:UpdateTemporaryVariables(sale)
@@ -1634,7 +1615,6 @@ local function onAddOnLoaded(eventCode, addonName)
   DefaultSettings.keepSalesForDays = 30
   DefaultSettings.debugMode = false
   DefaultSettings.debugModewrits = false
-  DefaultSettings.useAsyncLoading = true
 
   ArkadiusTradeToolsSalesData = ArkadiusTradeToolsSalesData or {}
   ArkadiusTradeToolsSalesData.settings = ArkadiusTradeToolsSalesData.settings or {}
@@ -1642,7 +1622,6 @@ local function onAddOnLoaded(eventCode, addonName)
   Settings = ArkadiusTradeToolsSalesData.settings
   Settings.debugMode = Settings.debugMode or DefaultSettings.debugMode
   Settings.debugModewrits = Settings.debugModewrits or DefaultSettings.debugModewrits
-  Settings.useAsyncLoading = Settings.useAsyncLoading ~= nil and Settings.useAsyncLoading or DefaultSettings.useAsyncLoading
   Settings.guilds = Settings.guilds or {}
   Settings.guildRoster = Settings.guildRoster or {}
   Settings.tooltips = Settings.tooltips or {}
